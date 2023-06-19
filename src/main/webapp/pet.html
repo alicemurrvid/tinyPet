@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Petition</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.8.0/css/bulma.min.css">
+<script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/mithril/mithril.js"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+
+</head>
+<body>
+
+<script>
+const CLIENT_ID = "1048646993657-jhplb72bvekc44tcf8au03vors3c99jv.apps.googleusercontent.com";
+const Petition = {
+    ID:"",
+	nextToken:"",
+	listtop100: [],
+    listowner: [],
+    listpetitiontag: [],
+    loadList: () => {
+      return m.request({
+        method: "GET",
+        url: "_ah/api/myApi/v1/getTopPetition"
+      }).then(result => {
+        Petition.listtop100 = result;
+      });
+    },
+    create: (data) => {
+      return m.request({
+        method: "POST",
+	        url: "_ah/api/myApi/v1/addPetition"+'?access_token='+encodeURIComponent(Petition.ID),
+	        params: data,
+      });
+    }
+  };
+  
+  const Navbar = {
+    isConnected: false,
+    onConnect: () => {
+      // Handle the connection logic here
+      Navbar.isConnected = true;
+    },
+    onDisconnect: () => {
+      // Handle the disconnection logic here
+      Navbar.isConnected = false;
+    },
+    onGetTopPetitions: () => {
+      Petition.loadList();
+    },
+    onCreatePetitions: () => {
+      Petition.create();
+      m.route.set("/petitions/new")
+    },
+    view: () => {
+      return m('nav', [
+        m('button', {
+          onclick: () => {
+            if (Navbar.isConnected) {
+              Navbar.onDisconnect();
+            } else {
+              Navbar.onConnect();
+            }
+          }
+        }, Navbar.isConnected ? 'Disconnect' : 'Connect'),
+        m(m.route.Link, { href: '/petitions/new' }, 'Create Petition'),
+        m('button', {
+          onclick: Navbar.onCreatePetition
+        }, 'Create Petition'),
+        m('button', {
+          onclick: Navbar.onGetTopPetitions
+        }, 'Get Top Petitions')
+      ]);
+    }
+  };
+  
+  const PetitionForm = {
+    data: {
+        titre : ' ',
+        description : ' ',
+        owner : ' ',
+        tag:'',
+        User : ' ',
+    },
+    submit: () => {
+      Petition.create(PetitionForm.data)
+        .then(() => {
+          PetitionForm.data.titre = '';
+          PetitionForm.data.description = '';
+          PetitionForm.data.tag = '';
+          PetitionForm.data.owner = '';
+          PetitionForm.data.User = '';
+          Petition.loadList();
+          m.route.set('/petitions/new');
+        });
+    },
+    view: () => {
+        return m('form', {
+            onsubmit: (e) => {
+                e.preventDefault();
+                PetitionForm.submit();
+            }
+      }, [
+        m('label', 'Title'),
+        m('input[type=text]', {
+          value: PetitionForm.data.title,
+          oninput: (e) => {
+            PetitionForm.data.titre = e.target.value;
+          }
+        }),
+        m('label', 'Description'),
+        m('textarea', {
+          value: PetitionForm.data.description,
+          oninput: (e) => {
+            PetitionForm.data.description = e.target.value;
+          }
+        }),
+        m('label', 'Tags'),
+        m('input[type=text]', {
+          value: PetitionForm.data.tag,
+          oninput: (e) => {
+            PetitionForm.data.tag = e.target.tag;
+          }
+        }),
+        m('button[type=submit]', 'Soumettre')
+      ]);
+    }
+  };
+  
+  const PetitionList = {
+    oninit: Petition.loadList,
+    view: () => {
+      return m('div', Petition.list.map(petition => {
+        return m('div', petition.title);
+      }));
+    }
+  };
+  
+  const Home = {
+    view: () => {
+      return [
+        m(Navbar),
+        m(PetitionList)
+      ];
+    }
+  };
+  
+  const routes = {
+  '/': Home,
+  '/petitions/new': PetitionForm,
+  '/petitions/top100': PetitionList
+  };
+  m.route(document.body, '/', routes);
+</script>
+</body>
+</html>

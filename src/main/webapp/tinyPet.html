@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Petition</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.8.0/css/bulma.min.css">
+<script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mithril/mithril.js"></script>
+
+
+<script src="https://unpkg.com/jwt-decode/build/jwt-decode.js"></script>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<div id="g_id_onload"
+     data-client_id="1048646993657-jhplb72bvekc44tcf8au03vors3c99jv.apps.googleusercontent.com"
+     data-callback="handleCredentialResponse">
+</div>
+</head>
+<body>
+
+<script>
+var Menu = {
+    view : function() {
+        return m('nav',
+        [
+            m('button',{onclick: function(e) {m.route.set("/create")}}, "Create"),
+            m('button',{onclick: function(e) {m.route.set("/liste")}}, "Liste"),
+            m('button',{onclick: function(e) {m.route.set("/login")}}, "Connexion")
+        ])
+    }
+}
+var User = {
+    ID:"",
+    name:"",
+}
+var Petition = {
+    data: {
+	    nextToken:"",
+	    listtop100: [],
+        listpetitiontag: [],
+    },
+    create : function() {
+        var data={'titre': CreatePetition.data.titre,'body':CreatePetition.data.description, 'tag' : CreatePetition.data.tag}
+        return m.request({
+	            method: "POST",
+	            url: "_ah/api/myApi/v1/addPetition"+'?access_token='+encodeURIComponent(User.ID),
+	            params: data,
+	        })
+	        .then(function(result) {
+	        	console.log("got:",result)
+	        	alert("Pétition créée...");
+	        	m.route.set("/home")
+	        })
+    },
+    loadList: function() {
+	    return m.request({
+	            method: "GET",
+	            url: "_ah/api/myApi/v1/entity"
+	        })
+	        .then(function(result) {
+                if (result != null){
+                    Petition.data.listtop100 = result.items;
+	                console.log("got:",result.items);
+                } else {
+                    console.log("Error, no data get");
+                }
+	            
+	        })
+	},
+    signPet: function(key) {
+        var data={'key': key}
+        return m.request({
+            method: "POST",
+	        url: "_ah/api/myApi/v1/signPetition/"+ '?access_token='+ encodeURIComponent(User.ID),
+            params : data,
+        })
+        .then(function(result) {
+	        console.log("got:",result)
+	        Petition.loadList()
+	    })
+    }
+}
+var CreatePetition = {
+    data: {
+        titre : '',
+        description : '',
+        tag:'',
+    },
+    view : function() {
+        return m('div', 
+        [
+            m(Menu),
+            m("div", [
+                m("label",{for:"titre"},"Titre"),
+                m("input[type=text][placeholder=Suppression définitive du puits au pierre-feuille-ciseaux]", {
+                    id: 'titre',
+                    value: CreatePetition.data.titre,
+				    oninput: function (e) {CreatePetition.data.titre=e.target.value},
+                }),
+                m("label",{for:"desc"},"Description"),
+                m("input[type=textarea[rows=4][cols=50]][placeholder=Cela fait déjà bien trop longtemps que le puit est utilisé dans nos parties de pierre-feuille-ciseaux et cela ne peut plus durer, si nous voulons sauvez la prochaine génération de ce fléau, il faut agir maintenant.]", {
+                    id: 'desc',
+                    value: CreatePetition.data.description,
+				    oninput: function (e) {CreatePetition.data.description=e.target.value},
+                }),
+                m("label",{for:"tag"},"Tag"),
+                m("input[type=text][rows=10][placeholder=#peupleLibre #révolution]", {
+                id: 'tag',
+                value: CreatePetition.data.tag,
+				oninput: function (e) {
+					CreatePetition.data.tag=e.target.value},
+                })]
+            ),
+            m('button',{
+				onclick: function(e) {
+					if(CreatePetition.data.titre=="" || CreatePetition.data.description=="" ){
+						alert("Veuillez renseigner le titre et la description !");
+					}
+						else {
+                            Petition.create();
+						}
+				}
+            }
+            ,"Enregistrer")
+        ])
+    }
+}
+var ListPetition = {
+    oninit: Petition.loadList,
+    view : function() {
+        return m('div', [
+           m("div", {},m(Menu)),
+	  m('div',{}, "Le top 100 des pétitions"),
+	  m('table', {class:'table is-striped'},[
+	    m('tr', [
+          m('th', {width:"300px"}, "propriétaire"),
+          m('th', {width:"300px"}, "titre"),
+          m('th', {width:"300px"}, "description"),
+          m('th', {width:"300px"}, "tag"),
+	      m('th', {width:"150px"}, "nombre de signatures"),
+	    ]),
+	    Petition.data.listtop100.map(function(item) {
+	      return m("tr", [
+            m('td', m('label', item.properties.owner)),
+            m('td', m('label', item.properties.titre)),
+            m('td', m('label', item.properties.body)),
+            m('td', m('label', item.properties.tag)),
+	        m('td', m('label', item.properties.nbSignatory)),
+            m('td', m('button',{
+				onclick: function(e) {
+					if(User.ID=="" ){
+						alert("Veuillez vous connecter pour signer !");
+					}
+						else {
+                            Petition.signPet(item.key.name);
+						}
+				}
+            }
+            ,"Signer")),
+            ])
+	    })
+	   ])
+	 ])
+  }
+}
+
+function onSignIn(googleUser) {
+  var profile = googleUser.getBasicProfile();
+  User.name=profile.getName();
+  User.ID=googleUser.getAuthResponse().id_token;
+  m.route.set("/home")
+}
+
+function handleCredentialResponse(response) {
+    console.log("callback called:"+response.credential)
+    // decodeJwtResponse() is a custom function defined by you
+    // to decode the credential response.
+    const responsePayload = jwt_decode(response.credential);
+
+    User.name= responsePayload.name
+    User.ID=response.credential
+    m.route.set("/home")
+}
+
+
+var Login = {
+  view: function() {
+ 	return m('div', {class:'container'}, [
+      m("h1", {class: 'title'}, 'TinyPet'),
+      m("div", {
+      	   "id":"g_id_onload",
+      	   "data-client_id":"1048646993657-jhplb72bvekc44tcf8au03vors3c99jv.apps.googleusercontent.com",
+           "data-callback":"handleCredentialResponse"}),
+      m("div", {
+      	   "class":"g_id_signin",
+      	   "data-type":"standard"}),
+      ])
+    }
+}
+
+m.route(document.body, "/home", {
+    "/home": {
+        onmatch: function() {
+            return Menu
+        }
+    },  
+    "/create": {
+        onmatch: function() {
+            return CreatePetition
+        }
+    },
+    "/liste": {
+    onmatch: function() {
+            return ListPetition
+        }
+    },  
+    "/login": {
+        onmatch: function() {
+            return Login
+        }
+    }
+})
+</script>
+</body>
+</html>

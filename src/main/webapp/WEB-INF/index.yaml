@@ -1,0 +1,7 @@
+indexes:
+- kind: Petition
+  properties: 
+    - name: nbSignatory
+      direction: desc
+    - name: tag
+      direction: asc 
